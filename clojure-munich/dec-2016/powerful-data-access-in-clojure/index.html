@@ -1,0 +1,930 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+    <title>Powerful Data Access in Clojure – Yannick Scherer</title>
+
+    <link rel="stylesheet" href="css/reveal.css" />
+    <link rel="stylesheet" href="css/theme/solarized.css" />
+    <link rel="stylesheet" href="css/font-awesome/css/font-awesome.min.css" />
+    <link rel="stylesheet" href="css/style.css" />
+
+    <!-- Theme used for syntax highlighting of code -->
+    <link rel="stylesheet" href="lib/css/zenburn.css">
+
+    <!-- Printing and PDF exports -->
+    <script>
+var link = document.createElement( 'link' );
+link.rel = 'stylesheet';
+link.type = 'text/css';
+link.href = window.location.search.match( /print-pdf/gi ) ? 'css/print/pdf.css' : 'css/print/paper.css';
+document.getElementsByTagName( 'head' )[0].appendChild( link );
+    </script>
+  </head>
+  <body>
+    <div class="reveal">
+      <div class="slides">
+        <!-- Title Card -->
+        <section>
+          <h2>Powerful Data Access in Clojure</h2>
+          <h4>Yannick Scherer</h4>
+          <div class='socials'>
+            <a class='social' href='https://github.com/xsc' target='_blank'>
+              <i class="fa fa-github" aria-hidden="true"></i>
+              <span>xsc</span>
+            </a>
+            <a class='social' href='https://twitter.com/xscys' target='_blank'>
+              <i class="fa fa-twitter" aria-hidden="true"></i>
+              <span>xscys</span>
+            </a>
+          </div>
+        </section>
+
+        <section>
+          <section><h2>The Perfect Data Source</h2></section>
+          <section>
+            <div class='row medium'>
+              <span class='fragment' data-fragment-index='1'>
+                <i class='fa fa-cube fragment highlight-red' data-fragment-index='3'></i>
+              </span>
+              <div class='column fragment' data-fragment-index='1'>
+                <div class='row small'>
+                  <i class='fa fa-cube fragment highlight-red' data-fragment-index='2'></i>
+                  <span>?</span>
+                </div>
+                <i class='fa fa-arrows-h'></i>
+              </div>
+              <i class='fa fa-database big'></i>
+              <div class='filler small fragment' data-fragment-index='4'>
+                <ul>
+                  <li>one endpoint</li>
+                  <li>one shape (<i class='fa fa-cube'></i>)</li>
+                  <li>queriable dimensions (<i class='fa fa-cube' style='color: red'></i>)</li>
+                  <li>self-contained</li>
+                  <li>no unnecessary data</li>
+                </ul>
+              </div>
+            </div>
+            <h4>The Perfect Data Source</h4>
+
+            <aside class='notes'>
+              <p>Possible variations: red cube, blue cube, partial cube.</p>
+              <p>Equivalent of a sode machine: It's all soda in different variations.</p>
+            </aside>
+          </section>
+
+          <section>
+            <pre><code data-trim>
+(defn fetch-cubes!
+  [datasource cube-query]
+  ...)
+            </code></pre>
+            <aside class='notes'>
+              Cubes can be individually cached.
+            </aside>
+          </section>
+          <section>
+            <pre><code data-trim>
+(defn fetch-view-data!
+  [datasource view]
+  (->> (build-cube-query view)
+       (fetch-cubes! datasource)
+       (transform-for-view)))
+            </code></pre>
+          </section>
+
+          <section data-transition='none'>
+            <h3>Reality!</h3>
+          </section>
+
+          <section>
+            <h4>A Federation of Perfect Data Sources</h4>
+            <div class='row'>
+              <div style='flex-basis:100%'>
+                <div class='row'>
+                  <i class='fa fa-cube'></i>
+                  <i class='fa fa-long-arrow-left'></i>
+                  <i class='fa fa-database'></i>
+                </div>
+                <div class='row'>
+                  <i class='fa fa-circle-o'></i>
+                  <i class='fa fa-long-arrow-left'></i>
+                  <i class='fa fa-database'></i>
+                </div>
+                <div class='row'>
+                  <i class='fa fa-gear'></i>
+                  <i class='fa fa-long-arrow-left'></i>
+                  <i class='fa fa-database'></i>
+                </div>
+                <div class='row'>
+                  <i class='fa fa-floppy-o'></i>
+                  <i class='fa fa-long-arrow-left'></i>
+                  <i class='fa fa-database'></i>
+                </div>
+              </div>
+              <div class='filler medium'>
+                <ul>
+                  <li><strong>one endpoint per shape</strong></li>
+                  <li>queriable dimensions</li>
+                  <li>self-contained</li>
+                  <li>no unnecessary data</li>
+                </ul>
+              </div>
+            </div>
+
+            <aside class='notes'>
+              <p>Data sources may provide multiple entities.</p>
+              <p>Equivalent of a snack machine.</p>
+            </aside>
+          </section>
+
+          <section>
+            <pre><code data-trim>
+(defn fetch-cubes!
+  [datasource cube-query]
+  ...)
+
+(defn fetch-circles!
+  [datasource circle-query]
+  ...)
+
+;; ...
+            </code></pre>
+            <aside class='notes'>
+              <p>Resources can be individually cached.</p>
+            </aside>
+          </section>
+
+          <section data-transition='none'>
+            <pre><code data-trim>
+(defn fetch-view-data!
+  [datasources view]
+  (let [cubes   (->> (build-cube-query view)
+                     (fetch-cubes! (:cube-source datasources)))
+        circles (->> (build-circle-query view)
+                     (fetch-circles! (:circle-source datasources)))]
+    (transform-for-view cubes circles)))
+            </code></pre>
+            <aside class='notes'>
+              <p>Client needs to know which data source provides which resource.</p>
+              <p>Independent resources can be fetched concurrently.</p>
+            </aside>
+          </section>
+
+          <section data-transition='none'>
+            <h4>An Opportunity for Parallelisation</h4>
+            <pre><code data-trim data-noescape>
+(defn fetch-view-data!
+  [datasources view]
+  (let [cubes   (->> (build-cube-query view)
+                     (fetch-cubes! (:cube-source datasources))
+                     (future))
+        circles (->> (build-circle-query view)
+                     (fetch-circles! (:circle-source datasources))
+                     (future))]
+    (transform-for-view @cubes @circles)))
+            </code></pre>
+          </section>
+
+          <section data-transition='none'>
+            <h3>More Reality!</h3>
+          </section>
+
+          <section>
+            <h4>Linked Data Sources</h4>
+            <div class='row'>
+              <div style='flex-basis:100%'>
+                <div class='row'>
+                  <i class='fa fa-cube'></i>
+                  <i class='fa fa-long-arrow-left'></i>
+                  <i class='fa fa-database'></i>
+                </div>
+                <div class='row'>
+                  <i style='color: orange;' class='fa fa-arrows-v'></i>
+                  <div></div>
+                  <div></div>
+                </div>
+                <div class='row'>
+                  <i style='color: orange' class='fa fa-floppy-o'></i>
+                  <i class='fa fa-long-arrow-left'></i>
+                  <i class='fa fa-database'></i>
+                </div>
+                <div class='row'>
+                  <i style='color: green;' class='fa fa-long-arrow-down'></i>
+                  <div></div>
+                  <div></div>
+                </div>
+                <div class='row'>
+                  <i style='color: green' class='fa fa-gear'></i>
+                  <i class='fa fa-long-arrow-left'></i>
+                  <i class='fa fa-database'></i>
+                </div>
+              </div>
+              <div class='filler medium'>
+                <ul>
+                  <li>one endpoint per shape</li>
+                  <li>queriable dimensions</li>
+                  <li><strong>explicit dependencies</strong></li>
+                  <li>no unnecessary data</li>
+                </ul>
+              </div>
+
+              <aside class='notes'>
+                <p>REST</p>
+                <p>Relation Databases (Foreign Keys)</p>
+              </aside>
+            </div>
+            <div class='row'>
+              <div style='flex-basis: 100%'>
+                <div class='row fragment' data-fragment-index='1'>
+                  <i class='fa fa-long-arrow-down'></i>
+                  <div></div>
+                  <div></div>
+                </div>
+                <div class='row fragment' data-fragment-index='1'>
+                  <i class='fa fa-cube'></i>
+                  <div></div>
+                  <div></div>
+                </div>
+              </div>
+              <div class='filler'></div>
+            </div>
+          </section>
+
+          <section data-transition='none'>
+            <pre><code data-trim>
+(defn fetch-view-data!
+  [datasources view]
+  (let [floppies (->> (build-floppy-query view)
+                      (fetch-floppies! (:floppy-source datasources)))
+        gears    (->> (extract-gear-references floppies)
+                      (build-gear-subquery view)
+                      (fetch-gears! (:gear-source datasources)))]
+    (transform-for-view
+      (attach-gears floppies gears))))
+            </code></pre>
+            <aside class='notes'>
+              <p>Client needs to know where resolvable references are.</p>
+              <p>Which order to fetch elements in?</p>
+              <p>What can be parallelized?</p>
+              <p>Can similar resources on different levels be batched?</p>
+            </aside>
+          </section>
+
+          <section data-transition='none'>
+            <h4>More Levels</h4>
+            <pre><code data-trim>
+(defn fetch-view-data!
+  [datasources view]
+  (let [floppies ...
+        gears    ...
+        cubes    (->> (concat
+                        (extract-floppy-cube-references floppies)
+                        (extract-gear-cube-references gears))
+                      (build-cube-subquery view)
+                      (fetch-cubes! (:cube-source datasources)))]
+    (transform-for-view
+      (attach-gears
+        (attach-floppy-cubes floppies cubes)
+        (attach-gear-cubes gears cubes)))))
+            </code></pre>
+            <aside class='notes'>
+              <p>More layers: Floppies with the same cube?</p>
+              <p>Some things can be parallelized, some can't/shouldn't.</p>
+            </aside>
+          </section>
+
+          <section data-transition='none'>
+            <h4>Variations of the same Shape</h4>
+            <pre><code data-trim>
+(defn fetch-view-data!
+  [datasources view]
+  (let [floppies ...
+        gears    ...
+        g-cubes  (->> (extract-floppy-cube-references floppies)
+                      (build-floppy-cube-subquery view)
+                      (fetch-cubes! (:cube-source datasources)))
+        f-cubes  (->> (extract-gear-cube-references gears)
+                      (build-gear-cube-subquery view)
+                      (fetch-cubes! (:cube-source datasources)))]
+    (transform-for-view
+      (attach-gears
+        (attach-floppy-cubes floppies f-cubes)
+        (attach-gear-cubes gears g-cubes)))))
+            </code></pre>
+            <aside class='notes'>
+              <p>You need to be able to discern the variations in the result.</p>
+            </aside>
+          </section>
+
+          <section data-transition='none'>
+            <pre><code data-trim>
+(defn fetch-view-data!
+  [datasources view]
+  (let [floppies ...
+        gears    ...
+        g-cubes  (->> (extract-floppy-cube-references floppies)
+                      (build-floppy-cube-subquery view)
+                      (fetch-cubes! (:cube-source datasources))
+                      (future))
+        f-cubes  (->> (extract-gear-cube-references gears)
+                      (build-gear-cube-subquery view)
+                      (fetch-cubes! (:cube-source datasources))
+                      (future))]
+    (transform-for-view
+      (attach-gears
+        (attach-floppy-cubes floppies @f-cubes)
+        (attach-gear-cubes gears @g-cubes)))))
+            </code></pre>
+            <aside class='notes'>
+              <p>You need to be able to discern the variations in the result.</p>
+              <p>Think about adding another layer. If you're not crying, you've not thought about it enough.</p>
+              <p>All we're trying to do is combine a series of "perfect" data sources into another "perfect" data source.</p>
+            </aside>
+          </section>
+        </section>
+
+        <section>
+          <h2>Things you don't want to care about</h2>
+          <ul>
+            <li>Reference Locations</li>
+            <li>Fetching Order/Parallelism</li>
+            <li>Redundant Fetches</li>
+            <li>Soundness</li>
+          </ul>
+        </section>
+
+        <section>
+          <section>
+            <h2>Haxl</h2>
+            <div class='socials'>
+              <a class='social' href='https://github.com/facebook/haxl' target='_blank'>
+                <i class="fa fa-github" aria-hidden="true"></i>
+                <span>facebook/haxl</span>
+              </a>
+            </div>
+          </section>
+
+          <section>
+            <h3>Haxl</h3>
+              A Haskell library that simplifies access to remote data, such as
+              databases or web-based services.
+          </section>
+
+          <section>
+            <h3>Haxl</h3>
+            <ul>
+              <li>Implicit concurrency using applicative functors.</li>
+              <li>Implicit caching.</li>
+            </ul>
+          </section>
+
+          <section>
+            <div><code>commonFriendsOfFriends id1 id2</code></div>
+            <table class='borderless'>
+              <tr class='fragment' data-fragment-index='4'>
+                <td style='text-align: center' colspan='5'>
+                    <i class='fa fa-long-arrow-up'></i>
+                </td>
+              </tr>
+              <tr>
+                <td style='text-align: center' class='fragment' data-fragment-index='2'>
+                    <i class='fa fa-cubes'></i>
+                    <div class='info'>
+                      <code>concat &lt;$&gt; mapM friendsOf <i class='fa fa-cube'></i></code>
+                    </div>
+                </td>
+                <td class='fragment' data-fragment-index='3'>
+                    <i class='fa fa-long-arrow-right'></i>
+                </td>
+                <td style='text-align: center' class='fragment' data-fragment-index='3'>
+                    <i class='fa fa-scissors'></i>
+                    <div class='info'>
+                      <code>intersect &lt;$&gt; <i class='fa fa-cubes'></i> &lt;*&gt; <i class='fa fa-cubes'></i></code>
+                    </div>
+                </td>
+                <td class='fragment' data-fragment-index='3'>
+                    <i class='fa fa-long-arrow-left'></i>
+                </td>
+                <td style='text-align: center' class='fragment' data-fragment-index='2'>
+                    <i class='fa fa-cubes'></i>
+                    <div class='info'>
+                      <code>concat &lt;$&gt; mapM friendsOf <i class='fa fa-cube'></i></code>
+                    </div>
+                </td>
+              </tr>
+              <tr class='fragment' data-fragment-index='2'>
+                <td style='text-align: center'>
+                    <i class='fa fa-long-arrow-up'></i>
+                </td>
+                <td />
+                <td />
+                <td />
+                <td style='text-align: center'>
+                    <i class='fa fa-long-arrow-up'></i>
+                </td>
+              </tr>
+              <tr>
+                <td style='text-align: center' class='fragment' data-fragment-index='0'>
+                    <i class='fa fa-cube'></i>
+                    <div class='info'><code>friendsOf id1</code></div>
+                </td>
+                <td />
+                <td />
+                <td />
+                <td style='text-align: center' class='fragment' data-fragment-index='1'>
+                    <i class='fa fa-cube'></i>
+                    <div class='info'><code>friendsOf id2</code></div>
+                </td>
+              </tr>
+            </table>
+
+            <aside class='notes'>
+              <p>Haxl implicitly caches identical values.</p>
+              <p>Haxl implicitly parallelises fetch operations.</p>
+              <p>Every <code>mapM</code> call is an opportunity to parallelise.</p>
+              <p>Every <code>&lt;*&gt;</code> composition is an opportunity to parallelise.</p>
+            </aside>
+          </section>
+
+          <section>
+            <h3>Request Definition</h3>
+            <pre><code class='haskell' data-trim>
+data FriendReq a where
+  FriendsOf :: Id -&gt; FriendReq [Id]
+  deriving (Typeable)
+
+instance DataSource u FriendReq where
+  fetch _state _flags _userEnv blockedFetches =
+    AsyncFetch $ \inner -&gt; do ...
+
+friendsOf :: Id -> Haxl [Id]
+friendsOf id = dataFetch (FriendsOf id)
+
+commonFriendsOfFriends id1 id2 = do
+  friends1 &lt;- friendsOf id1
+  friends2 &lt;- friendsOf id2
+  fofs1    &lt;- concat &lt;$&gt; mapM friendsOf friends1
+  fofs2    &lt;- concat &lt;$&gt; mapM friendsOf friends2
+  intersect fofs1 fofs2
+            </code></pre>
+
+            <aside class='notes'>
+              <p>Haxl collects all requests for the same data source and passes them to a fetch function.</p>
+              <p>This lets you do batched fetching where applicable.</p>
+            </aside>
+          </section>
+
+          <section>
+            <h3>Request Execution</h3>
+            <pre><code class='haskell' data-trim>
+main = do
+  env  &lt;- ...
+  id1  &lt;- ...
+  id2  &lt;- ...
+  fofs &lt;- runHaxl env $ commonFriendsOfFriends id1 id2
+  print fofs
+            </code></pre>
+          </section>
+
+        </section>
+
+        <section>
+          <section>
+            <h2>Muse &amp; Urania</h2>
+            <div class='socials'>
+              <a class='social' href='https://github.com/kachayev/muse' target='_blank'>
+                <i class="fa fa-github" aria-hidden="true"></i>
+                <span>kachayev/muse</span>
+              </a>
+              <a class='social' href='https://github.com/funcool/urania' target='_blank'>
+                <i class="fa fa-github" aria-hidden="true"></i>
+                <span>funcool/urania (<i class='fa fa-code-fork'></i>)</span>
+              </a>
+            </div>
+          </section>
+
+          <section>
+            <h3>Muse</h3>
+            A Clojure library that works hard to make your relationship with
+            remote data simple &amp; enjoyable.
+          </section>
+
+          <section>
+            <h3>Muse</h3>
+            <ul>
+              <li>Implements functors using the <code>cats</code> library.</li>
+              <li>Leverages protocols and records to declare data sources.</li>
+              <li>Uses <code>core.async</code> channels for concurrency.</li>
+            </ul>
+          </section>
+
+          <section>
+            <h3>Data Sources</h3>
+            <pre><code data-trim>
+(defrecord FriendsOf [id]
+  muse/DataSource
+  (fetch [_]
+    (go
+      (set (fetch-friend-ids! id)))))
+            </code></pre>
+
+            <aside class='notes'>
+              <p>In Haxl, datasources fulfill requests.</p>
+              <p>In Muse, requests query datasources.</p>
+            </aside>
+          </section>
+
+          <section>
+            <h3>Composition (fmap)</h3>
+            <pre><code data-trim>
+(muse/fmap count (->FriendsOf id1))
+(muse/fmap set/intersection (->FriendsOf id1) (->FriendsOf id2))
+            </code></pre>
+
+            <div class='fragment'>
+            <h3>Bind (flat-map)</h3>
+            <pre><code data-trim>
+(->> (->FriendsOf id1)
+     (muse/fmap first)
+     (muse/flat-map ->FriendsOf))
+            </code></pre>
+            </div>
+
+            <div class='fragment'>
+            <h3>Map (traverse)</h3>
+            <pre><code data-trim>
+(defn friends-of-friends
+  [id]
+  (->> (->FriendsOf id)
+       (muse/traverse ->FriendsOf)
+       (muse/fmap #(reduce set/union %))))
+            </code></pre>
+            </div>
+
+            <aside class='notes'>
+              <p>Obviously, the only function operating on sequences is called traverse.</p>
+            </aside>
+          </section>
+
+          <section>
+            <h3>The Good</h3>
+            <pre><code data-trim>
+(defn common-friends-of-friends
+  [id1 id2]
+  (muse/fmap
+    set/intersection
+    (friends-of-friends id1)
+    (friends-of-friends id2)))
+
+(muse/run!! (common-friends-of-friends 1 2))
+;; =&gt; #{3 4 5}
+            </code></pre>
+          </section>
+
+          <section>
+            <h3>The Batch</h3>
+            <pre><code data-trim>
+(defrecord FriendsOf [id]
+  muse/DataSource
+  (fetch [_]
+    (go
+      (set (fetch-friend-ids! id))))
+
+  muse/BatchedSource
+  (fetch-multi [_ users]
+    (let [ids (cons id (map :id users))]
+      (-&gt;&gt; ids ...))))
+            </code></pre>
+          </section>
+
+          <section>
+            <h3>The Ugly?</h3>
+            <pre><code data-trim>
+(defn user-and-friends-by-name
+  [name]
+  (muse/flat-map
+    (fn [{:keys [id] :as user}]
+      (muse/fmap
+        #(assoc user :friends %)
+        (->FriendsOf id)))
+    (->User name)))
+            </code></pre>
+
+            <aside class='notes'>
+              <p>Hard to grasp the actual shape of the result.</p>
+            </aside>
+          </section>
+
+          <section>
+            <h3>Urania</h3>
+            <ul>
+              <li>Fork of Muse.</li>
+              <li>Promises instead of channels.</li>
+              <li><code>fmap</code> <i class='fa fa-long-arrow-right'></i> <code>map</code></li>
+              <li><code>flat-map</code> <i class='fa fa-long-arrow-right'></i> <code>mapcat</code></li>
+              <li>Allows passing of environment to fetch function.</li>
+            </ul>
+          </section>
+        </section>
+
+        <section>
+          <h2>Things you don't want to care about</h2>
+          <ul>
+            <li>Reference Locations <i class='fa fa-times fragment' data-fragment-index='3'></i></li>
+            <li>Fetching Order/Parallelism <i class='fa fa-check fragment' data-fragment-index='2'></i></li>
+            <li>Redundant Fetches <i class='fa fa-check fragment' data-fragment-index='1'></i></li>
+            <li>Soundness <i class='fa fa-check fragment' data-fragment-index='0'></i></li>
+          </ul>
+
+          <aside class='notes'>
+            <p>Muse &amp; Haxl are most useful when trying to work with independent sets of data.</p>
+            <p>Nested object construction is very tedious.</p>
+            <p>In this domain, not a great improvement over any manual approach.</p>
+          </aside>
+        </section>
+
+        <section>
+          <section>
+            <h2>GraphQL</h2>
+            <div class='socials'>
+              <a class='social' href='https://github.com/facebook/graphql' target='_blank'>
+                <i class="fa fa-github" aria-hidden="true"></i>
+                <span>facebook/graphql</span>
+              </a>
+            </div>
+          </section>
+
+          <section>
+            <h3>GraphQL</h3>
+            <p>Describe your data.</p>
+            <p>Ask for what you want.</p>
+            <p>Get predictable results.</p>
+          </section>
+
+          <section>
+            <pre><code class='graphql' data-trim>
+{
+  commonFriends(id1: 1, id2: 2) {
+    name,
+    address { city }
+  }
+}
+            </code></pre>
+            <pre class='fragment'><code class='json' data-trim>
+{
+  "commonFriends": [
+    { "name": "Nobody", "address": { "city": "Nowhere" }},
+    ...
+  ]
+}
+            </code></pre>
+          </section>
+
+          <section>
+            <pre><code class='graphql' data-trim>
+{
+  commonFriends(id1: 1, id2: 2) {
+    name,
+    address { city },
+    friends { friends { friends { name } } }
+  }
+}
+            </code></pre>
+            <pre class='fragment'><code class='json' data-trim>
+{
+  "commonFriends": [
+    {
+      "name": "Nobody",
+      "address": { "city": "Nowhere" },
+      "friends": [{ "friends": [{ "friends": [{ "name": "Who" }]}]}]
+    },
+    ...
+  ]
+}
+            </code></pre>
+          </section>
+        </section>
+
+        <section>
+          <section>
+            <h2>claro</h2>
+            <div class='socials'>
+              <a class='social' href='https://github.com/xsc/claro' target='_blank'>
+                <i class="fa fa-github" aria-hidden="true"></i>
+                <span>xsc/claro</span>
+              </a>
+            </div>
+          </section>
+
+          <section>
+            <h3>claro</h3>
+            A library that allows you to streamline your data access, providing
+            powerful optimisations and abstractions along the way.
+          </section>
+
+          <section>
+            <h3>Any datastructure is a datasource</h3>
+          </section>
+
+          <section>
+            <h3>Any datastructure is a datasource:</h3>
+            <pre><code data-trim>
+(engine/run!!
+  {:friends1 (->FriendsOf 1)
+   :friends2 (->FriendsOf 2)})
+;; => {:friends1 #{2 3}, :friends2 #{2 5}}
+            </code></pre>
+
+            <div class='fragment'>
+            <h3>Compare:</h3>
+            <pre><code data-trim>
+(muse/run!!
+  (muse/fmap
+    #(hash-map :friends1 %1 :friends2 %2)
+    (->FriendsOf 1)
+    (->FriendsOf 2)))
+;; => {:friends1 #{2 3}, :friends2 #{2 5}}
+            </code></pre>
+            </div>
+          </section>
+
+          <section>
+            <h3>Datasources can produce more datasources</h3>
+          </section>
+
+          <section>
+            <h3>Datasources can produce more datasources:</h3>
+            <pre><code data-trim>
+(defrecord User [id]
+  data/Resolvable
+  (resolve! [_ env]
+    (d/future
+      (when-let [user (fetch-user! (:db env) id)]
+        (assoc user :friends (->FriendsOf (:id user)))))))
+            </code></pre>
+            <p style='text-align: left; width: 60%; margin: 0 auto;'>
+            <span class='fragment'>
+              <i class='fa fa-long-arrow-right'></i>
+              fewer <code>(fmap ...)</code> calls
+            </span><br />
+            <span class='fragment'>
+              <i class='fa fa-long-arrow-right'></i>
+              unnecessary data‽
+            </span>
+            </p>
+
+            <aside class='notes'>
+              <p>The entity itself knows best what field references what.</p>
+              <p>Why would I, when requesting a User, need to know that I can retrieve their friends using FriendsOf?</p>
+              <p>But: Every time I ask for a user I get all his friends, even if I don't need them?</p>
+              <p>It get's worse.</p>
+            </aside>
+          </section>
+
+          <section>
+            <h3>Datasources can produce infinite trees</h3>
+          </section>
+
+          <section>
+            <h3>Datasources can produce infinite trees:</h3>
+            <pre><code data-trim>
+(defrecord FriendsOf [id]
+  data/Resolvable
+  (resolve! [_ env]
+    (d/future
+      (let [friends (fetch-friend-ids! (:db env) id)]
+        (set (map #(-&gt;User %) friends))))))
+            </code></pre>
+            <pre class='fragment'><code data-trim data-noescape>
+(engine/run!! (-&gt;User 1))
+<span class='fragment'>;; =&gt; IllegalStateException: maximum batch count exceeded (33/32).</span>
+            </code></pre>
+            <aside class='notes'>
+              <p>You can build infinite trees of data.</p>
+            </aside>
+          </section>
+
+          <section>
+            <h3>Tree Projections</h3>
+          </section>
+
+          <section>
+            <h3>Selection</h3>
+            <pre><code class='clojure' data-trim>
+{:id      projection/leaf
+ :name    projection/leaf
+ :friends [{:name projection/leaf}]}
+            </code></pre>
+            <pre class='fragment'><code class='clojure' data-trim>
+(engine/run!! (projection/apply (->User 1) ...))
+;; => {:id      1,
+;;     :name    "Someone",
+;;     :friends [{:name "Nobody"} {:name "NobodyElse"}]}
+            </code></pre>
+          </section>
+
+          <section>
+            <h3>Merge</h3>
+            <pre><code class='clojure' data-trim>
+(projection/union
+  base-user
+  {:friends [(projection/extract :name)]})
+            </code></pre>
+            <pre class='fragment'><code class='clojure' data-trim>
+(engine/run!! (projection/apply (->User 1) ...))
+;; => {:id      1,
+;;     :name    "Someone",
+;;     :friends ["Nobody" "NobodyElse"]}
+            </code></pre>
+            <p class='fragment'><i class='fa fa-long-arrow-right'></i> tree projections are composable!</p>
+          </section>
+
+          <section>
+            <h3>Transform</h3>
+            <pre><code class='clojure' data-trim>
+{:id      projection/leaf
+ :name    projection/leaf
+ :friends (projection/transform count [{}])}
+            </code></pre>
+            <pre class='fragment'><code class='clojure' data-trim>
+(engine/run!! (projection/apply (->User 1) ...))
+;; => {:id      1,
+;;     :name    "Someone",
+;;     :friends 2}
+            </code></pre>
+          </section>
+
+          <section>
+            <h3>Claro Que Sì</h3>
+            <ul>
+              <li>
+                Create <u>one</u> rich, reusable, infinite tree of data.
+                <pre><code data-trim>
+(def Root
+  {:user  (map->User {})
+   :users (map->Users {})
+   ...})
+                </code></pre>
+              </li>
+              <li class='fragment'>
+                Select/transform the parts you need ad-hoc.
+                <pre><code data-trim>
+(defn fetch-view-data!
+  [view]
+  (->> (build-projection view)
+       (projection/apply Root)
+       (engine/run!!)))
+                </code></pre>
+              </li>
+            </ul>
+          </section>
+        </section>
+
+        <section>
+          <div class='row medium'>
+            <span class='fragment' data-fragment-index='1'>
+              <i class='fa fa-tree fragment highlight-red' data-fragment-index='2'></i>
+            </span>
+            <div class='column fragment' data-fragment-index='1'>
+              <div class='row small'>
+                <i class='fa fa-tree fragment highlight-red' data-fragment-index='2'></i>
+                <span>?</span>
+              </div>
+              <i class='fa fa-arrows-h'></i>
+            </div>
+            <i class='fa fa-database big'></i>
+            <div class='filler'></div>
+          </div>
+          <h4 class='fragment'>The Perfect Data Source</h4>
+        </section>
+
+        <section>
+          <h2>Thank you!</h2>
+        </section>
+
+      </div>
+    </div>
+
+    <script src="lib/js/head.min.js"></script>
+    <script src="js/reveal.js"></script>
+
+    <script>
+// More info https://github.com/hakimel/reveal.js#configuration
+Reveal.initialize({
+  history: true,
+  transition: 'none',
+
+  // More info https://github.com/hakimel/reveal.js#dependencies
+  dependencies: [
+  { src: 'plugin/markdown/marked.js' },
+  { src: 'plugin/markdown/markdown.js' },
+  { src: 'plugin/notes/notes.js', async: true },
+  { src: 'plugin/highlight/highlight.js', async: true, callback: function() { hljs.initHighlightingOnLoad(); } }
+  ]
+});
+    </script>
+  </body>
+</html>

@@ -1,0 +1,86 @@
+.socials {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.social {
+  padding: 0 0.5em !important;
+  font-size: 40% !important;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+a.social {
+  color: inherit;
+}
+
+.social > i {
+  padding-right: 0.2em;
+}
+
+.social > span {
+  margin-top: -0.2em;
+}
+
+.row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.row + .row {
+  margin-top: 1em;
+}
+
+.row.medium {
+  font-size: 200% !important;
+}
+
+.row > * {
+  flex-basis: 33%;
+}
+
+.row + h4 {
+  padding-top: 0.5em;
+}
+
+.row .filler {
+  flex-basis: 65%;
+  justify-content: flex-start;
+  line-height: 1.6em;
+}
+
+.filler.small {
+  font-size: 30% !important;
+}
+
+.filler.medium {
+  font-size: 60% !important;
+}
+
+.row.small > * {
+  font-size: 50%;
+  flex-basis: 15%;
+  justify-content: center:
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+}
+
+.big {
+  font-size: 200% !important;
+}
+
+table.borderless td {
+  border-style: none;
+}
+
+.info {
+  display: block;
+  padding-top: 0.5em !important;
+  font-size: 40% !important;
+}
